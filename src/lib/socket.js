@@ -15,7 +15,9 @@ const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || proce
 const productionFrontends = [
     "https://chat-frontend-nine-phi.vercel.app",
     "https://chat-frontend-git-main-abhimanyukumars-projects.vercel.app",
-    "https://chat-frontend-abhimanyukumars-projects.vercel.app"
+    "https://chat-frontend-abhimanyukumars-projects.vercel.app",
+    // Include all possible subdomains
+    "https://*.vercel.app"
 ];
 
 const devExtras = [
@@ -25,17 +27,24 @@ const devExtras = [
     "http://127.0.0.1:5174",
 ];
 
-// Combined allowed origins with deduplication
-const allowedOrigins = Array.from(new Set([
-    ...baseOrigins,
-    ...productionFrontends, // Include all production frontend URLs
-    ...(process.env.NODE_ENV === 'production' ? [] : devExtras),
-]));
+// In production, be more permissive for debugging
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? ['*'] // Allow all origins in production for debugging
+    : Array.from(new Set([
+        ...baseOrigins,
+        ...productionFrontends,
+        ...devExtras,
+      ]));
 
 console.log("Socket.io CORS allowed origins:", allowedOrigins);
 
 const io = new Server(server, {
-    cors: {
+    cors: process.env.NODE_ENV === 'production' ? {
+        // Super permissive CORS config for production debugging
+        origin: '*',
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    } : {
         origin: (origin, callback) => {
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);

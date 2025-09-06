@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import User from "./models/user.model.js";
 import { connectDB } from "./config/db.js";
+import { corsMiddleware } from "./middlewares/cors.middleware.js";
 
 // Set up __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -27,7 +28,7 @@ import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./lib/socket.js";
 
-// CORS configuration
+// CORS configuration - making it more permissive for debugging
 const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173")
     .split(",")
     .map((o) => o.trim())
@@ -37,7 +38,9 @@ const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || proce
 const productionFrontends = [
     "https://chat-frontend-nine-phi.vercel.app",
     "https://chat-frontend-git-main-abhimanyukumars-projects.vercel.app",
-    "https://chat-frontend-abhimanyukumars-projects.vercel.app"
+    "https://chat-frontend-abhimanyukumars-projects.vercel.app",
+    // Include all possible subdomains
+    "https://*.vercel.app"
 ];
 
 const devExtras = [
@@ -47,15 +50,26 @@ const devExtras = [
     "http://127.0.0.1:5174",
 ];
 
-const allowedOrigins = Array.from(new Set([
-    ...baseOrigins,
-    ...productionFrontends, // Always include all production frontend URLs
-    ...(process.env.NODE_ENV === 'production' ? [] : devExtras),
-]));
+// In production, let's be more permissive for debugging
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? ['*'] // Allow all origins in production while debugging
+    : Array.from(new Set([
+        ...baseOrigins,
+        ...productionFrontends,
+        ...devExtras
+      ]));
 
 console.log("CORS Allowed origins:", allowedOrigins);
 
-const corsOptions = {
+const corsOptions = process.env.NODE_ENV === 'production' ? {
+    // Super permissive CORS config for production debugging
+    origin: '*',
+    credentials: true, 
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    maxAge: 86400 // 24 hours
+} : {
+    // More restrictive for development
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) {
@@ -88,12 +102,19 @@ const corsOptions = {
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
     exposedHeaders: ["set-cookie"]
 };
 
+// Apply CORS middleware first
+app.use(corsMiddleware);
 app.use(cors(corsOptions));
-app.use(helmet());
+
+// Apply other middlewares
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false
+}));
 app.use(cookieParser());
 const PORT = process.env.PORT || 4000;
 // Increase body size limits to handle base64 image uploads
