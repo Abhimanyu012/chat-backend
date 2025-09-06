@@ -6,34 +6,49 @@ import bcrypt from "bcryptjs";
 
 export const signup = async (req, res) => {
     try {
+        console.log("Signup request received:", JSON.stringify(req.body));
         const { fullName, email, password } = req.body || {};
 
         if (!fullName || !email || !password) {
+            console.log("Missing fields:", { fullName: !!fullName, email: !!email, password: !!password });
             return res.status(400).json({ message: "All fields are required" });
         }
 
         if (password.length < 6) {
+            console.log("Password too short:", password.length);
             return res.status(400).json({ message: "Password must be at least 6 characters" });
         }
 
+        // Check if user exists before creating
         const existing = await User.findOne({ email });
         if (existing) {
+            console.log("Email already exists:", email);
             return res.status(409).json({ message: "Email already exists" });
         }
 
+        // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashPassword = await bcrypt.hash(password, salt);
 
+        // Create new user
         const newUser = new User({
             fullName,
             email,
             password: hashPassword,
         });
 
+        console.log("Saving new user:", { fullName, email });
         await newUser.save();
+        console.log("User saved successfully with ID:", newUser._id);
 
         // Set JWT cookie
-        generateToken(newUser._id, res);
+        try {
+            generateToken(newUser._id, res);
+            console.log("JWT token generated successfully");
+        } catch (tokenError) {
+            console.error("Token generation error:", tokenError);
+            return res.status(500).json({ message: "Error generating authentication token" });
+        }
 
         return res.status(201).json({
             _id: newUser._id,
@@ -42,7 +57,8 @@ export const signup = async (req, res) => {
             profilePic: newUser.profilePic,
         });
     } catch (error) {
-        console.log("Error in signup controller:", error.message);
+        console.error("Error in signup controller:", error.message);
+        console.error("Full error:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
 };

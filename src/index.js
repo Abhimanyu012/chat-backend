@@ -51,24 +51,38 @@ console.log("CORS Allowed origins:", allowedOrigins);
 const corsOptions = {
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
+        if (!origin) {
+            console.log("No origin provided, allowing request");
+            return callback(null, true);
+        }
         
         // Check if origin is allowed
-        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            console.log(`Origin ${origin} is allowed by CORS`);
+            return callback(null, true);
+        }
         
         // Check for local development
         try {
             const u = new URL(origin);
             const isLocal = ["localhost", "127.0.0.1"].includes(u.hostname);
             const isViteDev = isLocal && ["5173", "5174", "4173", "4174"].includes(u.port);
-            if (isViteDev) return callback(null, true);
-        } catch { }
+            if (isViteDev) {
+                console.log(`Local development origin ${origin} is allowed by CORS`);
+                return callback(null, true);
+            }
+        } catch (err) {
+            console.error("Error parsing origin URL:", err.message);
+        }
         
         // Log denied origins for debugging
         console.log(`CORS denied for origin: ${origin}`);
         return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["set-cookie"]
 };
 
 app.use(cors(corsOptions));
