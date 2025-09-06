@@ -9,7 +9,6 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import User from "./models/user.model.js";
 import { connectDB } from "./config/db.js";
-import { corsMiddleware } from "./middlewares/cors.middleware.js";
 
 // Set up __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -28,99 +27,29 @@ import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./lib/socket.js";
 
-// CORS configuration - making it more permissive for debugging
-const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173")
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean);
+import { app, server } from "./lib/socket.js";
 
-// Always include the Vercel production URLs
-const productionFrontends = [
+import { app, server } from "./lib/socket.js";
+
+const corsOptions = {
+  origin: [
     "https://chat-frontend-nine-phi.vercel.app",
-    "https://chat-frontend-git-main-abhimanyukumars-projects.vercel.app",
-    "https://chat-frontend-abhimanyukumars-projects.vercel.app",
-    // Include all possible subdomains
-    "https://*.vercel.app"
-];
-
-const devExtras = [
     "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-];
-
-// In production, let's be more permissive for debugging
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-    ? ['*'] // Allow all origins in production while debugging
-    : Array.from(new Set([
-        ...baseOrigins,
-        ...productionFrontends,
-        ...devExtras
-      ]));
-
-console.log("CORS Allowed origins:", allowedOrigins);
-
-const corsOptions = process.env.NODE_ENV === 'production' ? {
-    // Super permissive CORS config for production debugging
-    origin: '*',
-    credentials: true, 
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
-    maxAge: 86400 // 24 hours
-} : {
-    // More restrictive for development
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) {
-            console.log("No origin provided, allowing request");
-            return callback(null, true);
-        }
-        
-        // Check if origin is allowed
-        if (allowedOrigins.includes(origin)) {
-            console.log(`Origin ${origin} is allowed by CORS`);
-            return callback(null, true);
-        }
-        
-        // Check for local development
-        try {
-            const u = new URL(origin);
-            const isLocal = ["localhost", "127.0.0.1"].includes(u.hostname);
-            const isViteDev = isLocal && ["5173", "5174", "4173", "4174"].includes(u.port);
-            if (isViteDev) {
-                console.log(`Local development origin ${origin} is allowed by CORS`);
-                return callback(null, true);
-            }
-        } catch (err) {
-            console.error("Error parsing origin URL:", err.message);
-        }
-        
-        // Log denied origins for debugging
-        console.log(`CORS denied for origin: ${origin}`);
-        return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
-    exposedHeaders: ["set-cookie"]
+  ],
+  credentials: true,
 };
 
-// Apply CORS middleware first
-app.use(corsMiddleware);
 app.use(cors(corsOptions));
 
-// Apply other middlewares
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false
-}));
+// Middleware
+app.use(express.json());
 app.use(cookieParser());
-const PORT = process.env.PORT || 4000;
-// Increase body size limits to handle base64 image uploads
-const JSON_LIMIT = process.env.JSON_LIMIT || "10mb";
-app.use(express.json({ limit: JSON_LIMIT }));
-app.use(express.urlencoded({ limit: JSON_LIMIT, extended: true }));
+app.use(helmet());
+
+// Test route to check if server is running
+app.get("/test", (req, res) => {
+  res.send("Server is running");
+});
 
 // Health check endpoint for monitoring
 app.get('/health', (req, res) => {
@@ -264,12 +193,19 @@ app.post('/api/test-create-user', async (req, res) => {
   }
 });
 
-// Import test routes
-import testRoutes from "./routes/test.route.js";
-
+// Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/message", messageRoutes);
-app.use("/api/test", testRoutes);
+app.use("/api/messages", messageRoutes);
+
+// Serve static files in production
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../client/build")));
+  
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../client/build", "index.html"));
+  });
+}
+
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`Server started on port ${PORT}`);
