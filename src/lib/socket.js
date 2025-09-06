@@ -6,13 +6,29 @@ const app = express()
 const server = http.createServer(app)
 
 // Get allowed origins from environment variables
-const allowedOrigins = process.env.CORS_ORIGINS 
-    ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-    : [process.env.CLIENT_URL || "http://localhost:5173"];
+const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+// Always include the Vercel production URL
+const productionFrontend = "https://chat-frontend-nine-phi.vercel.app";
+
+// Combined allowed origins
+const allowedOrigins = [...baseOrigins, productionFrontend];
+
+console.log("Socket.io CORS allowed origins:", allowedOrigins);
 
 const io = new Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                console.log(`Socket.io CORS blocked origin: ${origin}`);
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
         credentials: true
     }
 })
