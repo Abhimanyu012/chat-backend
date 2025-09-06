@@ -10,10 +10,13 @@ import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./lib/socket.js";
 
 // CORS configuration
-const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || "http://localhost:5173")
+const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || process.env.FRONTEND_URL || process.env.CORS_ORIGIN || "http://localhost:5173")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
+
+// Always include the Vercel production URL
+const productionFrontend = "https://chat-frontend-nine-phi.vercel.app";
 
 const devExtras = [
     "http://localhost:5173",
@@ -21,21 +24,33 @@ const devExtras = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
 ];
+
 const allowedOrigins = Array.from(new Set([
     ...baseOrigins,
+    productionFrontend, // Always include the production frontend
     ...(process.env.NODE_ENV === 'production' ? [] : devExtras),
 ]));
 
+console.log("CORS Allowed origins:", allowedOrigins);
+
 const corsOptions = {
     origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
+        
+        // Check if origin is allowed
         if (allowedOrigins.includes(origin)) return callback(null, true);
+        
+        // Check for local development
         try {
             const u = new URL(origin);
             const isLocal = ["localhost", "127.0.0.1"].includes(u.hostname);
             const isViteDev = isLocal && ["5173", "5174", "4173", "4174"].includes(u.port);
             if (isViteDev) return callback(null, true);
         } catch { }
+        
+        // Log denied origins for debugging
+        console.log(`CORS denied for origin: ${origin}`);
         return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
