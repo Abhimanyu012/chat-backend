@@ -14,8 +14,19 @@ const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || proce
 // Always include the Vercel production URL
 const productionFrontend = "https://chat-frontend-nine-phi.vercel.app";
 
-// Combined allowed origins
-const allowedOrigins = [...baseOrigins, productionFrontend];
+const devExtras = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+];
+
+// Combined allowed origins with deduplication
+const allowedOrigins = Array.from(new Set([
+    ...baseOrigins,
+    productionFrontend, // Always include production frontend
+    ...(process.env.NODE_ENV === 'production' ? [] : devExtras),
+]));
 
 console.log("Socket.io CORS allowed origins:", allowedOrigins);
 

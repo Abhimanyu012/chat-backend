@@ -1,10 +1,25 @@
 import express from "express";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import { connectDB } from "./config/db.js";
-dotenv.config();
+
+// Set up __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables with multiple fallbacks
+dotenv.config(); // Load from .env
+dotenv.config({ path: path.resolve(__dirname, '../.env.production') }); // Load from .env.production
+dotenv.config({ path: path.resolve(__dirname, '../.env.local') }); // Load from .env.local
+
+// Log environment for debugging
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("MongoDB URI exists:", !!process.env.MONGODB_URI);
+
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./lib/socket.js";

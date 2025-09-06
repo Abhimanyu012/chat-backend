@@ -45,4 +45,32 @@ CORS_ORIGIN=your_frontend_url
 
 ## Deployment
 
-This repository is set up for easy deployment to Render.com.
+This repository is set up for easy deployment to Render.com:
+
+1. Create a new Web Service in Render.com
+2. Link your GitHub repository
+3. Configure these settings:
+   - Build Command: `chmod +x ./render-build.sh && ./render-build.sh`
+   - Start Command: `npm start`
+   - Node version: 18 or higher
+
+4. Add all environment variables in the Render dashboard:
+   - MONGODB_URI
+   - JWT_SECRET
+   - CLOUDINARY_CLOUD_NAME
+   - CLOUDINARY_API_KEY
+   - CLOUDINARY_API_SECRET
+   - CLIENT_URL (your Vercel frontend URL)
+   - CORS_ORIGINS (your Vercel frontend URL)
+   - NODE_ENV=production
+
+## Troubleshooting
+
+### CORS Issues
+Make sure your frontend URL is correctly added to the CORS configuration in both index.js and socket.js files.
+
+### MongoDB Connection Issues
+Verify that your MONGODB_URI environment variable is correctly set in your Render.com dashboard. The application has fallbacks but requires this for production.
+
+### Socket.IO Connection Issues
+Check that the Socket.IO CORS settings match your frontend domain.
