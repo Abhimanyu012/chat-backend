@@ -22,12 +22,15 @@ export const generateToken = (userId, res) => {
         // Configure cookie settings based on environment
         const isProduction = process.env.NODE_ENV === "production";
         
+        // For production environments, use SameSite=None with Secure to allow cross-domain cookies
+        // This is necessary for Vercel frontend to Render backend communication
         res.cookie("jwt", token, {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             httpOnly: true,
-            sameSite: isProduction ? "none" : "strict", // Use 'none' for cross-site in production with HTTPS
-            secure: isProduction, // Only send over HTTPS in production
+            sameSite: isProduction ? "none" : "lax", // Use 'none' for cross-site in production
+            secure: isProduction, // Must be true when sameSite is 'none'
             path: "/", // Ensure cookie is available across the site
+            domain: isProduction ? undefined : undefined, // Use specific domain in production if needed
         });
         
         return token;

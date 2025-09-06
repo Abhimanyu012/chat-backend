@@ -11,8 +11,12 @@ const baseOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || proce
     .map(origin => origin.trim())
     .filter(Boolean);
 
-// Always include the Vercel production URL
-const productionFrontend = "https://chat-frontend-nine-phi.vercel.app";
+// Always include the Vercel production URLs
+const productionFrontends = [
+    "https://chat-frontend-nine-phi.vercel.app",
+    "https://chat-frontend-git-main-abhimanyukumars-projects.vercel.app",
+    "https://chat-frontend-abhimanyukumars-projects.vercel.app"
+];
 
 const devExtras = [
     "http://localhost:5173",
@@ -24,7 +28,7 @@ const devExtras = [
 // Combined allowed origins with deduplication
 const allowedOrigins = Array.from(new Set([
     ...baseOrigins,
-    productionFrontend, // Always include production frontend
+    ...productionFrontends, // Include all production frontend URLs
     ...(process.env.NODE_ENV === 'production' ? [] : devExtras),
 ]));
 
