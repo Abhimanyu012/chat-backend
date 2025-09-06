@@ -27,13 +27,11 @@ import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import { app, server } from "./lib/socket.js";
 
-import { app, server } from "./lib/socket.js";
-
-import { app, server } from "./lib/socket.js";
-
 const corsOptions = {
   origin: [
     "https://chat-frontend-nine-phi.vercel.app",
+    "https://chat-frontend-git-main-abhimanyukumars-projects.vercel.app",
+    "https://chat-frontend-abhimanyukumars-projects.vercel.app",
     "http://localhost:5173",
   ],
   credentials: true,
@@ -45,6 +43,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 app.use(helmet());
+
+const PORT = process.env.PORT || 5000;
 
 // Test route to check if server is running
 app.get("/test", (req, res) => {
@@ -209,8 +209,7 @@ if (process.env.NODE_ENV === "production") {
 connectDB().then(() => {
     server.listen(PORT, () => {
         console.log(`Server started on port ${PORT}`);
-        console.log("CORS allowed origins:", allowedOrigins);
-        console.log("JSON/URL-encoded limit:", JSON_LIMIT);
+        console.log("CORS allowed origins:", corsOptions.origin);
     });
 }).catch((err) => {
     console.error("Failed to connect to database:", err);
