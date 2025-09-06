@@ -7,6 +7,8 @@ import bcrypt from "bcryptjs";
 export const signup = async (req, res) => {
     try {
         console.log("Signup request received:", JSON.stringify(req.body));
+        console.log("Request headers:", JSON.stringify(req.headers));
+        
         const { fullName, email, password } = req.body || {};
 
         if (!fullName || !email || !password) {
@@ -19,47 +21,67 @@ export const signup = async (req, res) => {
             return res.status(400).json({ message: "Password must be at least 6 characters" });
         }
 
-        // Check if user exists before creating
-        const existing = await User.findOne({ email });
-        if (existing) {
-            console.log("Email already exists:", email);
-            return res.status(409).json({ message: "Email already exists" });
-        }
-
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashPassword = await bcrypt.hash(password, salt);
-
-        // Create new user
-        const newUser = new User({
-            fullName,
-            email,
-            password: hashPassword,
-        });
-
-        console.log("Saving new user:", { fullName, email });
-        await newUser.save();
-        console.log("User saved successfully with ID:", newUser._id);
-
-        // Set JWT cookie
         try {
-            generateToken(newUser._id, res);
-            console.log("JWT token generated successfully");
-        } catch (tokenError) {
-            console.error("Token generation error:", tokenError);
-            return res.status(500).json({ message: "Error generating authentication token" });
+            // Check if user exists before creating
+            console.log("Checking if email exists:", email);
+            const existing = await User.findOne({ email });
+            if (existing) {
+                console.log("Email already exists:", email);
+                return res.status(409).json({ message: "Email already exists" });
+            }
+            console.log("Email is available");
+        } catch (dbError) {
+            console.error("Database error checking existing user:", dbError);
+            return res.status(500).json({ message: "Database error checking user existence", error: dbError.message });
         }
 
-        return res.status(201).json({
-            _id: newUser._id,
-            fullName: newUser.fullName,
-            email: newUser.email,
-            profilePic: newUser.profilePic,
-        });
+        try {
+            // Hash password
+            console.log("Hashing password");
+            const salt = await bcrypt.genSalt(10);
+            const hashPassword = await bcrypt.hash(password, salt);
+            console.log("Password hashed successfully");
+
+            // Create new user
+            const newUser = new User({
+                fullName,
+                email,
+                password: hashPassword,
+            });
+
+            console.log("Saving new user:", { fullName, email });
+            await newUser.save();
+            console.log("User saved successfully with ID:", newUser._id);
+            
+            // Set JWT cookie
+            try {
+                console.log("Generating JWT token");
+                generateToken(newUser._id, res);
+                console.log("JWT token generated successfully");
+            } catch (tokenError) {
+                console.error("Token generation error:", tokenError);
+                return res.status(500).json({ message: "Error generating authentication token", error: tokenError.message });
+            }
+
+            console.log("Sending success response");
+            return res.status(201).json({
+                _id: newUser._id,
+                fullName: newUser.fullName,
+                email: newUser.email,
+                profilePic: newUser.profilePic,
+            });
+        } catch (userSaveError) {
+            console.error("Error saving user:", userSaveError);
+            return res.status(500).json({ message: "Error creating user account", error: userSaveError.message });
+        }
     } catch (error) {
         console.error("Error in signup controller:", error.message);
-        console.error("Full error:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        console.error("Full error stack:", error.stack);
+        return res.status(500).json({ 
+            message: "Internal server error during signup process", 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 

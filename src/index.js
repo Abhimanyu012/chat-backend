@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
 
 // Set up __dirname equivalent for ES modules
@@ -104,7 +105,8 @@ app.get('/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    mongoConnected: !!mongoose.connection.readyState
   });
 });
 
@@ -114,8 +116,49 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    mongoConnected: !!mongoose.connection.readyState
   });
+});
+
+// Database test endpoint
+app.get('/api/db-test', async (req, res) => {
+  try {
+    // Check MongoDB connection
+    const dbState = mongoose.connection.readyState;
+    const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    
+    console.log(`MongoDB connection state: ${states[dbState]}`);
+    
+    // Test connection by running a simple query
+    const result = await mongoose.connection.db.admin().ping();
+    
+    return res.status(200).json({
+      status: 'ok',
+      mongoConnected: true,
+      connectionState: states[dbState],
+      ping: result,
+      envVariables: {
+        MONGODB_URI_EXISTS: !!process.env.MONGODB_URI,
+        NODE_ENV: process.env.NODE_ENV,
+        JWT_SECRET_EXISTS: !!process.env.JWT_SECRET
+      }
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Database connection test failed',
+      error: error.message,
+      mongoConnected: false,
+      connectionState: states[mongoose.connection.readyState],
+      envVariables: {
+        MONGODB_URI_EXISTS: !!process.env.MONGODB_URI,
+        NODE_ENV: process.env.NODE_ENV,
+        JWT_SECRET_EXISTS: !!process.env.JWT_SECRET
+      }
+    });
+  }
 });
 
 app.use("/api/auth", authRoutes);
