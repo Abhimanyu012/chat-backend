@@ -1,0 +1,21 @@
+# Render.com service configuration
+
+# Build
+build:
+  # Clear dependencies before installing
+  steps:
+    - name: Install dependencies
+      command: npm ci --production
+
+# Start the service
+services:
+  - type: web
+    name: chat-backend
+    env: node
+    buildCommand: npm ci --production
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
