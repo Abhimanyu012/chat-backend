@@ -39,6 +39,14 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Debug middleware to log CORS requests
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS' || req.headers.origin) {
+    console.log(`CORS Request: ${req.method} ${req.path} from origin: ${req.headers.origin}`);
+  }
+  next();
+});
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
