@@ -7,7 +7,13 @@ cloudinary.config({
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
     secure: true, // Force HTTPS
-    timeout: 30000, // 30 second timeout
+    timeout: 60000, // Increase timeout to 60 seconds for large images
+});
+
+console.log("☁️  Cloudinary configured:", {
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    timeout: "60000ms",
+    secure: true
 });
 
 export default cloudinary;

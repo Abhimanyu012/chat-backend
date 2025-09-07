@@ -124,18 +124,30 @@ export const logout = async (req, res) => {
 
 export const updateProfile = async (req, res) => {  
     try {
+        console.log("🔄 Starting updateProfile function");
+        const requestStartTime = Date.now();
+        
         const { profilePic } = req.body;
         const userId = req.user?._id;
         
+        console.log("📋 Profile update request details:", {
+            userId: userId?.toString(),
+            hasProfilePic: !!profilePic,
+            profilePicSize: profilePic ? `${(profilePic.length / 1024).toFixed(2)}KB` : 'N/A'
+        });
+        
         if (!userId) {
+            console.log("❌ Unauthorized: No user ID found");
             return res.status(401).json({ message: "Unauthorized" });
         }
         
         if (!profilePic) {
+            console.log("❌ Bad Request: No profile picture provided");
             return res.status(400).json({ message: "Profile picture is required" });
         }
         
-        console.log("Uploading profile picture for user:", userId);
+        console.log("☁️  Starting Cloudinary upload for profile picture");
+        const uploadStartTime = Date.now();
         
         // Upload with optimizations for profile pictures
         const uploadResponse = await cloudinary.uploader.upload(profilePic, {
@@ -149,7 +161,23 @@ export const updateProfile = async (req, res) => {
             allowed_formats: ["jpg", "jpeg", "png", "webp"]
         });
         
-        console.log("Image uploaded successfully to:", uploadResponse.secure_url);
+        const uploadEndTime = Date.now();
+        const uploadDuration = uploadEndTime - uploadStartTime;
+        
+        console.log("✅ Cloudinary upload successful:", {
+            uploadDuration: `${uploadDuration}ms`,
+            imageUrl: uploadResponse.secure_url.substring(0, 50) + '...',
+            cloudinaryResponse: {
+                public_id: uploadResponse.public_id,
+                format: uploadResponse.format,
+                width: uploadResponse.width,
+                height: uploadResponse.height,
+                bytes: uploadResponse.bytes
+            }
+        });
+        
+        console.log("💾 Updating user profile in database");
+        const dbUpdateStartTime = Date.now();
         
         const updatedUser = await User.findByIdAndUpdate(
             userId,
@@ -157,11 +185,31 @@ export const updateProfile = async (req, res) => {
             { new: true }
         ).select("-password");
         
+        const dbUpdateEndTime = Date.now();
+        const dbUpdateDuration = dbUpdateEndTime - dbUpdateStartTime;
+        
+        console.log("✅ Database update completed:", {
+            dbUpdateDuration: `${dbUpdateDuration}ms`,
+            userFound: !!updatedUser
+        });
+        
         if (!updatedUser) {
+            console.log("❌ User not found in database");
             return res.status(404).json({ message: "User not found" });
         }
         
-        console.log("Profile updated successfully for user:", userId);
+        const requestEndTime = Date.now();
+        const totalDuration = requestEndTime - requestStartTime;
+        
+        console.log("🎯 updateProfile completed successfully:", {
+            totalDuration: `${totalDuration}ms`,
+            breakdown: {
+                cloudinaryUpload: `${uploadDuration}ms`,
+                dbUpdate: `${dbUpdateDuration}ms`
+            },
+            userId: userId.toString(),
+            newProfilePic: updatedUser.profilePic.substring(0, 50) + '...'
+        });
         
         return res.status(200).json({
             _id: updatedUser._id,
@@ -170,11 +218,29 @@ export const updateProfile = async (req, res) => {
             profilePic: updatedUser.profilePic,
         });
     } catch (error) {
-        console.error("Error in updateProfile controller:", error.message);
+        const requestEndTime = Date.now();
+        const errorDuration = requestEndTime - (typeof requestStartTime !== 'undefined' ? requestStartTime : requestEndTime);
+        
+        console.error("💥 Error in updateProfile controller:", {
+            errorDuration: `${errorDuration}ms`,
+            errorMessage: error.message,
+            errorStack: error.stack,
+            errorName: error.name,
+            userId: req.user?._id?.toString()
+        });
         
         // Handle specific Cloudinary errors
         if (error.name === 'Error' && error.message.includes('Invalid image')) {
             return res.status(400).json({ message: "Invalid image format. Please upload a valid image file." });
+        }
+        
+        // Handle timeout errors
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            console.error("⏰ Timeout error in updateProfile:", {
+                timeout: true,
+                errorCode: error.code
+            });
+            return res.status(408).json({ message: "Request timeout. Please try again with a smaller image." });
         }
         
         return res.status(500).json({ 
