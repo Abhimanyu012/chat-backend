@@ -204,6 +204,7 @@ app.post('/api/test-create-user', async (req, res) => {
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/message", messageRoutes); // Alias for frontend compatibility
 
 connectDB().then(() => {
     server.listen(PORT, () => {
