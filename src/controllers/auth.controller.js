@@ -123,24 +123,46 @@ export const logout = async (req, res) => {
 };
 
 export const updateProfile = async (req, res) => {  
-    const { profilePic } = req.body;
-    const userId = req.user?._id;
-    try {  
-        if (!profilePic) {
-            return res.status(400).json({ message: "Profile data is required" });
-        }
-        const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    try {
+        const { profilePic } = req.body;
+        const userId = req.user?._id;
+        
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
+        
+        if (!profilePic) {
+            return res.status(400).json({ message: "Profile picture is required" });
+        }
+        
+        console.log("Uploading profile picture for user:", userId);
+        
+        // Upload with optimizations for profile pictures
+        const uploadResponse = await cloudinary.uploader.upload(profilePic, {
+            resource_type: "auto",
+            transformation: [
+                { width: 400, height: 400, crop: "fill", gravity: "face" }, // Square crop focused on face
+                { quality: "auto:good" }, // Good quality but optimized
+                { fetch_format: "auto" } // Auto format (WebP when supported)
+            ],
+            folder: "chat-app/profiles", // Organize uploads
+            allowed_formats: ["jpg", "jpeg", "png", "webp"]
+        });
+        
+        console.log("Image uploaded successfully to:", uploadResponse.secure_url);
+        
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             { profilePic: uploadResponse.secure_url },
             { new: true }
-        );
+        ).select("-password");
+        
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });
         }
+        
+        console.log("Profile updated successfully for user:", userId);
+        
         return res.status(200).json({
             _id: updatedUser._id,
             fullName: updatedUser.fullName,
@@ -148,8 +170,17 @@ export const updateProfile = async (req, res) => {
             profilePic: updatedUser.profilePic,
         });
     } catch (error) {
-        console.log("Error in updateProfile controller:", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        console.error("Error in updateProfile controller:", error.message);
+        
+        // Handle specific Cloudinary errors
+        if (error.name === 'Error' && error.message.includes('Invalid image')) {
+            return res.status(400).json({ message: "Invalid image format. Please upload a valid image file." });
+        }
+        
+        return res.status(500).json({ 
+            message: "Internal server error", 
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
     }
 }
  
